@@ -35,6 +35,14 @@ type Chain struct {
 	relayerPrvKey *ecdsa.PrivateKey
 	client        *client.ETHClient
 	ibcHandler    *ibchandler.Ibchandler
+
+	packetCache            eventCache[ibchandler.IbchandlerSendPacket]
+	packetCachedHeight     uint64
+	packetCheckpointHeight uint64
+
+	ackCache            eventCache[ibchandler.IbchandlerWriteAcknowledgement]
+	ackCachedHeight     uint64
+	ackCheckpointHeight uint64
 }
 
 var _ core.Chain = (*Chain)(nil)
@@ -257,8 +265,8 @@ func (c *Chain) QueryPacketCommitments(ctx core.QueryContext, offset uint64, lim
 	return &res, nil
 }
 
-// QueryUnrecievedPackets returns a list of unrelayed packet commitments
-func (c *Chain) QueryUnrecievedPackets(ctx core.QueryContext, seqs []uint64) ([]uint64, error) {
+// QueryUnreceivedPackets returns a list of unrelayed packet commitments
+func (c *Chain) QueryUnreceivedPackets(ctx core.QueryContext, seqs []uint64) ([]uint64, error) {
 	var ret []uint64
 	for _, seq := range seqs {
 		found, err := c.ibcHandler.HasPacketReceipt(c.callOptsFromQueryContext(ctx), c.pathEnd.PortID, c.pathEnd.ChannelID, seq)
@@ -286,8 +294,8 @@ func (c *Chain) QueryPacketAcknowledgementCommitments(ctx core.QueryContext, off
 	return &res, nil
 }
 
-// QueryUnrecievedAcknowledgements returns a list of unrelayed packet acks
-func (c *Chain) QueryUnrecievedAcknowledgements(ctx core.QueryContext, seqs []uint64) ([]uint64, error) {
+// QueryUnreceivedAcknowledgements returns a list of unrelayed packet acks
+func (c *Chain) QueryUnreceivedAcknowledgements(ctx core.QueryContext, seqs []uint64) ([]uint64, error) {
 	var ret []uint64
 	for _, seq := range seqs {
 		_, found, err := c.ibcHandler.GetHashedPacketCommitment(c.callOptsFromQueryContext(ctx), c.pathEnd.PortID, c.pathEnd.ChannelID, seq)
@@ -308,6 +316,26 @@ func (c *Chain) QueryPacket(ctx core.QueryContext, sequence uint64) (*chantypes.
 // QueryPacketAcknowledgement returns the acknowledgement corresponding to a sequence
 func (c *Chain) QueryPacketAcknowledgement(ctx core.QueryContext, sequence uint64) ([]byte, error) {
 	return c.findAcknowledgement(ctx, c.pathEnd.PortID, c.pathEnd.ChannelID, sequence)
+}
+
+// EvictPacketCache evicts events from cache
+func (c *Chain) EvictPacketCache(seqs []uint64) {
+	for _, seq := range seqs {
+		c.packetCache.remove(seq)
+	}
+
+	// TODO: save the checkpoint to disk
+	c.packetCheckpointHeight = c.packetCache.calcMinimumHeight()
+}
+
+// EvictAcknowledgementCache evicts events from cache
+func (c *Chain) EvictAcknowledgementCache(seqs []uint64) {
+	for _, seq := range seqs {
+		c.ackCache.remove(seq)
+	}
+
+	// TODO: save the checkpoint to disk
+	c.ackCheckpointHeight = c.ackCache.calcMinimumHeight()
 }
 
 // QueryBalance returns the amount of coins in the relayer account
