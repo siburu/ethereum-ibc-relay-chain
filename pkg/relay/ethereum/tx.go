@@ -51,17 +51,20 @@ func (c *Chain) SendMsgs(msgs []sdk.Msg) ([]core.MsgID, error) {
 			logger.Error("failed to send msg / NoSend: true", err, "msg_index", i)
 			return nil, err
 		}
-		estimatedGas, err := c.client.EstimateGasFromTx(ctx, tx)
-		if err != nil {
-			revertReason, rawErrorData, err2 := c.getRevertReasonFromEstimateGas(err)
-			if err2 != nil {
-				logger.Error("failed to get revert reason", err2, "msg_index", i)
-			}
+		/*
+			estimatedGas, err := c.client.EstimateGasFromTx(ctx, tx)
+			if err != nil {
+				revertReason, rawErrorData, err2 := c.getRevertReasonFromEstimateGas(err)
+				if err2 != nil {
+					logger.Error("failed to get revert reason", err2, "msg_index", i)
+				}
 
-			logger.Error("failed to estimate gas", err, "revert_reason", revertReason, "raw_error_data", hex.EncodeToString(rawErrorData), "msg_index", i)
-			return nil, err
-		}
-		txGasLimit := estimatedGas * c.Config().GasEstimateRate.Numerator / c.Config().GasEstimateRate.Denominator
+				logger.Error("failed to estimate gas", err, "revert_reason", revertReason, "raw_error_data", hex.EncodeToString(rawErrorData), "msg_index", i)
+				return nil, err
+			}
+			txGasLimit := estimatedGas * c.Config().GasEstimateRate.Numerator / c.Config().GasEstimateRate.Denominator
+		*/
+		txGasLimit := uint64(5000000)
 		if txGasLimit > c.Config().MaxGasLimit {
 			logger.Warn("estimated gas exceeds max gas limit", "estimated_gas", txGasLimit, "max_gas_limit", c.Config().MaxGasLimit, "msg_index", i)
 			txGasLimit = c.Config().MaxGasLimit
